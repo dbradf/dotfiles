@@ -1,9 +1,8 @@
 use ansi_term::Colour;
 use directories_next::BaseDirs;
-use serde_yaml;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 use std::os::unix::fs;
+use std::path::Path;
 
 const DEFAULT_FILE: &str = "manifest.yml";
 
@@ -51,18 +50,33 @@ impl DotFileItem {
             match link_type_res {
                 Ok(link_info) => {
                     if source.canonicalize().unwrap() == link_info.canonicalize().unwrap() {
-                        println!("{}: Correct link already exists", Colour::Yellow.paint(&self.source));
+                        println!(
+                            "{}: Correct link already exists",
+                            Colour::Yellow.paint(&self.source)
+                        );
                     } else {
-                        println!("{}: Incorrect link already exists ({:?})", Colour::Red.paint(&self.source), link_info.canonicalize().unwrap());
+                        println!(
+                            "{}: Incorrect link already exists ({:?})",
+                            Colour::Red.paint(&self.source),
+                            link_info.canonicalize().unwrap()
+                        );
                     }
                 }
                 _ => {
-                    println!("{}: Found non-linked file {:?}", Colour::Red.paint(&self.source), &destination);
+                    println!(
+                        "{}: Found non-linked file {:?}",
+                        Colour::Red.paint(&self.source),
+                        &destination
+                    );
                 }
             }
         } else {
             fs::symlink(&source, &destination).unwrap();
-            println!("{}: Created new symlink: {:?}", Colour::Green.paint(&self.source), &destination);
+            println!(
+                "{}: Created new symlink: {:?}",
+                Colour::Green.paint(&self.source),
+                &destination
+            );
         }
     }
 }
@@ -73,7 +87,9 @@ struct ManifestContent {
 }
 
 fn main() {
-    let config_file = std::env::args().nth(1).unwrap_or(String::from(DEFAULT_FILE));    
+    let config_file = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| String::from(DEFAULT_FILE));
     let base_dirs = BaseDirs::new().unwrap();
     let install_dir = Path::new(&config_file).parent().unwrap();
 
@@ -84,4 +100,3 @@ fn main() {
         f.install(&base_dirs, install_dir);
     }
 }
-
