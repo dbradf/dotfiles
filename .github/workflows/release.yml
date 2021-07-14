@@ -1,35 +1,10 @@
-name: Test and Publish
+name: Release
 on: 
   push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+    tags: 
+      - '*'
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    name: Lint and tests
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Setup toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-
-      - name: Check
-        run: cargo check
-
-      - name: Clippy
-        run: cargo clippy
-
-      - name: Test
-        run: cargo test
-
   deploy:
     name: Publish for ${{ matrix.os }}
     needs: test
@@ -39,7 +14,6 @@ jobs:
       matrix:
         name: [
           linux,
-          macos
         ]
 
         include:
@@ -47,10 +21,6 @@ jobs:
             os: ubuntu-latest
             artifact_name: target/release/<name>
             asset_name: <name>-linux
-          - name: macos
-            os: macos-latest
-            artifact_name: target/release/<name>
-            assert_name: <name>-macos
 
     steps:
       - name: Checkout
