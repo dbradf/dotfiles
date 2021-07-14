@@ -1,0 +1,73 @@
+name: Test and Publish
+on: 
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Lint and tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Check
+        run: cargo check
+
+      - name: Clippy
+        run: cargo clippy
+
+      - name: Test
+        run: cargo test
+
+  deploy:
+    name: Publish for ${{ matrix.os }}
+    needs: test
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        name: [
+          linux,
+          macos
+        ]
+
+        include:
+          - name: linux
+            os: ubuntu-latest
+            artifact_name: target/release/<name>
+            asset_name: <name>-linux
+          - name: macos
+            os: macos-latest
+            artifact_name: target/release/<name>
+            assert_name: <name>-macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Upload release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.artifact_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
