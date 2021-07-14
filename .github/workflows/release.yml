@@ -1,0 +1,64 @@
+name: Release
+on: 
+  push:
+    tags: 
+      - '*'
+
+jobs:
+  build_artifacts:
+    name: Build artifacts for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        name: [
+          linux,
+          macos,
+        ]
+
+        include:
+          - name: linux
+            os: ubuntu-latest
+            artifact_name: target/release/dotfiles-linux
+            asset_name: dotfiles-linux
+          - name: macos
+            os: macos-latest
+            artifact_name: target/release/dotfiles-macos
+            asset_name: dotfiles-macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Rename artifacts
+        run: mv target/release/dotfiles target/release/${{ matrix.asset_name }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.artifact_name }}
+
+  deploy_artifacts:
+    name: Create release
+    needs: build_artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get artifacts
+        uses: actions/download-artifact@v2
+
+      - run: ls
+
+      - name: Upload release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "dotfiles-*/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
