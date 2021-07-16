@@ -1,4 +1,5 @@
 use ansi_term::Colour;
+use anyhow::{Context, Result};
 use directories_next::BaseDirs;
 use serde::{Deserialize, Serialize};
 use std::os::unix::fs;
@@ -36,7 +37,7 @@ struct DotFileItem {
 }
 
 impl DotFileItem {
-    pub fn install(&self, base_dirs: &BaseDirs, source_dir: &Path) {
+    pub fn install(&self, base_dirs: &BaseDirs, source_dir: &Path) -> Result<()> {
         let mut install_dir = self.location.path(base_dirs).to_path_buf();
         install_dir.push(&self.destination);
         let destination = install_dir.as_path();
@@ -49,7 +50,7 @@ impl DotFileItem {
             let link_type_res = destination.read_link();
             match link_type_res {
                 Ok(link_info) => {
-                    if source.canonicalize().unwrap() == link_info.canonicalize().unwrap() {
+                    if source.canonicalize()? == link_info.canonicalize()? {
                         println!(
                             "{}: Correct link already exists",
                             Colour::Yellow.paint(&self.source)
@@ -58,7 +59,7 @@ impl DotFileItem {
                         println!(
                             "{}: Incorrect link already exists ({:?})",
                             Colour::Red.paint(&self.source),
-                            link_info.canonicalize().unwrap()
+                            link_info.canonicalize()?
                         );
                     }
                 }
@@ -69,15 +70,21 @@ impl DotFileItem {
                         &destination
                     );
                 }
-            }
+            };
         } else {
-            fs::symlink(&source, &destination).unwrap();
+            let destination_dir = destination.parent().unwrap();
+            if !destination_dir.exists() {
+                std::fs::create_dir_all(destination_dir)?;
+            }
+            fs::symlink(&source, &destination)
+                .context(format!("{:?} -> {:?}", &source, &destination))?;
             println!(
                 "{}: Created new symlink: {:?}",
                 Colour::Green.paint(&self.source),
                 &destination
             );
         }
+        Ok(())
     }
 }
 
@@ -94,9 +101,12 @@ fn main() {
     let install_dir = Path::new(&config_file).parent().unwrap();
 
     let contents = std::fs::read_to_string(&config_file).expect("Could not given file");
-    let manifest: ManifestContent = serde_yaml::from_str(&contents).unwrap();
+    let manifest: ManifestContent =
+        serde_yaml::from_str(&contents).expect("Could not parse manifest contents");
 
     for f in manifest.files {
-        f.install(&base_dirs, install_dir);
+        if let Err(err) = f.install(&base_dirs, install_dir) {
+            eprintln!("{}: {:?}", Colour::Red.paint("ERROR"), err);
+        }
     }
 }
