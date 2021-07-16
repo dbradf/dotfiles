@@ -3,7 +3,8 @@ use anyhow::{Context, Result};
 use directories_next::BaseDirs;
 use serde::{Deserialize, Serialize};
 use std::os::unix::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use structopt::StructOpt;
 
 const DEFAULT_FILE: &str = "manifest.yml";
 
@@ -93,14 +94,33 @@ struct ManifestContent {
     pub files: Vec<DotFileItem>,
 }
 
-fn main() {
-    let config_file = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| String::from(DEFAULT_FILE));
-    let base_dirs = BaseDirs::new().unwrap();
-    let install_dir = Path::new(&config_file).parent().unwrap();
+#[derive(Debug, StructOpt)]
+#[structopt(name = "dotfiles")]
+/// A tool for managing dotfiles.
+///
+/// Dot files are managed using a manifest YAML file. The YAML files should
+/// contain a list of files to install. Each containing a `source` and `destination`.
+///
+/// The `source` should be the path of a file to install relative to the manifest files.
+///
+/// The `destination` should be the path to install the `source`. By default, this location
+/// will be relative to the "config" directory for your system (see XDG Base Directories).
+///
+/// An additional YAML property `location` can be set to "Home" to make the `destination`
+/// relative to the home directory.
+struct Opt {
+    /// Manifest file containing files to configure.
+    #[structopt(parse(from_os_str), default_value = DEFAULT_FILE, short, long)]
+    manifest_file: PathBuf,
+}
 
-    let contents = std::fs::read_to_string(&config_file).expect("Could not given file");
+fn main() {
+    let opt = Opt::from_args();
+
+    let base_dirs = BaseDirs::new().unwrap();
+    let install_dir = Path::new(&opt.manifest_file).parent().unwrap();
+
+    let contents = std::fs::read_to_string(&opt.manifest_file).expect("Could not given file");
     let manifest: ManifestContent =
         serde_yaml::from_str(&contents).expect("Could not parse manifest contents");
 
