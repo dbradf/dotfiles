@@ -77,7 +77,7 @@ impl DotFileItem {
             if !destination_dir.exists() {
                 std::fs::create_dir_all(destination_dir)?;
             }
-            fs::symlink(&source, &destination)
+            fs::symlink(&source.canonicalize().unwrap(), &destination)
                 .context(format!("{:?} -> {:?}", &source, &destination))?;
             println!(
                 "{}: Created new symlink: {:?}",
