@@ -1,5 +1,5 @@
 use ansi_term::Colour;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use directories_next::BaseDirs;
 use serde::{Deserialize, Serialize};
 use std::os::unix::fs;
@@ -43,9 +43,16 @@ impl DotFileItem {
         install_dir.push(&self.destination);
         let destination = install_dir.as_path();
 
-        let mut current_dir = source_dir.to_path_buf();
-        current_dir.push(&self.source);
-        let source = current_dir.as_path();
+        let mut source_path = source_dir.to_path_buf();
+        source_path.push(&self.source);
+        let source = source_path.as_path();
+
+        if !source.exists() {
+            bail!(format!(
+                "Source file '{}' not found",
+                source.to_str().unwrap()
+            ));
+        }
 
         if destination.exists() {
             let link_type_res = destination.read_link();
