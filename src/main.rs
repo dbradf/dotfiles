@@ -38,7 +38,7 @@ struct DotFileItem {
 }
 
 impl DotFileItem {
-    pub fn install(&self, base_dirs: &BaseDirs, source_dir: &Path) -> Result<()> {
+    pub fn install(&self, base_dirs: &BaseDirs, source_dir: &Path, force: bool) -> Result<()> {
         let mut install_dir = self.location.path(base_dirs).to_path_buf();
         install_dir.push(&self.destination);
         let destination = install_dir.as_path();
@@ -54,7 +54,7 @@ impl DotFileItem {
             ));
         }
 
-        if destination.exists() {
+        if destination.exists() && !force {
             let link_type_res = destination.read_link();
             match link_type_res {
                 Ok(link_info) => {
@@ -80,11 +80,14 @@ impl DotFileItem {
                 }
             };
         } else {
+            if destination.exists() {
+                std::fs::remove_file(destination).unwrap();
+            }
             let destination_dir = destination.parent().unwrap();
             if !destination_dir.exists() {
                 std::fs::create_dir_all(destination_dir)?;
             }
-            fs::symlink(&source.canonicalize().unwrap(), &destination)
+            fs::symlink(source.canonicalize().unwrap(), destination)
                 .context(format!("{:?} -> {:?}", &source, &destination))?;
             println!(
                 "{}: Created new symlink: {:?}",
@@ -119,6 +122,10 @@ struct Opt {
     /// Manifest file containing files to configure.
     #[structopt(parse(from_os_str), default_value = DEFAULT_FILE, short, long)]
     manifest_file: PathBuf,
+
+    /// Overwrite existing symbolic links.
+    #[structopt(long)]
+    force: bool,
 }
 
 fn main() {
@@ -132,7 +139,7 @@ fn main() {
         serde_yaml::from_str(&contents).expect("Could not parse manifest contents");
 
     for f in manifest.files {
-        if let Err(err) = f.install(&base_dirs, install_dir) {
+        if let Err(err) = f.install(&base_dirs, install_dir, opt.force) {
             eprintln!("{}: {:?}", Colour::Red.paint("ERROR"), err);
         }
     }
